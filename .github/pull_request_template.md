@@ -1,8 +1,3 @@
----
-name: PR 템플릿          
-about: PR을 생성할 때 이 양식을 사용합니다.
-title: "[Type] 제목"      
----
 ## 🔍 What is the PR?
 
 <!-- PR 내용을 리스트로 작성-->
@@ -10,7 +5,6 @@ title: "[Type] 제목"
 ## 📸 Screenshot
 
 <!-- 작업한 화면의 스크린 샷 -->
-
 
 ## 📢 Notices
 
