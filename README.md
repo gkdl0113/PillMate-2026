@@ -26,11 +26,6 @@ npm install
 
 ### 2. 환경변수 설정
 
-`.env.example`을 복사해 `.env` 파일을 생성하고 값을 채워주세요.
-
-```bash
-cp .env.example .env
-```
 
 `.env` 파일 항목 설명:
 
