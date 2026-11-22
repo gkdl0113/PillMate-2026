@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon app.js",
     "start": "node app.js",
-    "seed": "node db/seed-runner.js"
+    "seed": "node db/seed-runner.js",
+    "test": "node scripts/check-syntax.js"
   },
   "repository": {
     "type": "git",
