@@ -23,3 +23,6 @@ config/gcp-key.json
 
 #ocr약 등록 임시 파일
 uploads/
+# k8s secret env, service account key
+.env.k8s
+*-key.json

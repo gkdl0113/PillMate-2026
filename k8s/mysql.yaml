@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pillmate-mysql-pvc
+  labels:
+    app: pillmate
+    tier: db
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pillmate-mysql
+  labels:
+    app: pillmate
+    tier: db
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: pillmate
+      tier: db
+  template:
+    metadata:
+      labels:
+        app: pillmate
+        tier: db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+            - --default-time-zone=+09:00
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: pillmate-env, key: DB_ROOT_PASSWORD } }
+            - name: MYSQL_DATABASE
+              valueFrom: { secretKeyRef: { name: pillmate-env, key: DB_NAME } }
+            - name: MYSQL_USER
+              valueFrom: { secretKeyRef: { name: pillmate-env, key: DB_USER } }
+            - name: MYSQL_PASSWORD
+              valueFrom: { secretKeyRef: { name: pillmate-env, key: DB_PASSWORD } }
+          ports:
+            - containerPort: 3306
+              name: mysql
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\""]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 512Mi }
+            limits:   { memory: 1Gi }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+              subPath: mysql  # 디스크 루트에 lost+found가 있어서 하위 폴더 사용
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d  # db/*.sql, 최초 1회만 실행됨
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: pillmate-mysql-pvc
+        - name: init
+          configMap:
+            name: pillmate-db-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pillmate-mysql
+  labels:
+    app: pillmate
+    tier: db
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3306
+      targetPort: 3306
+  selector:
+    app: pillmate
+    tier: db

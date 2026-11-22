@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pillmate-web
+  labels:
+    app: pillmate
+    tier: web
+spec:
+  # 세션이 MemoryStore라서 파드 여러 개면 로그인 유지가 안 되고 알림 cron도 중복 실행됨 -> 1개로 유지
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: pillmate
+      tier: web
+  template:
+    metadata:
+      labels:
+        app: pillmate
+        tier: web
+    spec:
+      containers:
+        - name: pillmate
+          image: IMAGE_PLACEHOLDER  # Jenkinsfile에서 빌드 이미지 태그로 치환
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          envFrom:
+            - secretRef:
+                name: pillmate-env
+          env:
+            - name: DB_HOST
+              value: pillmate-mysql
+            - name: PORT
+              value: "3000"
+          readinessProbe:
+            httpGet: { path: /auth/login, port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /auth/login, port: 3000 }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits:   { memory: 512Mi }
+          volumeMounts:
+            - name: gcp-key
+              mountPath: /app/config/gcp-key.json
+              subPath: gcp-key.json
+              readOnly: true
+      volumes:
+        - name: gcp-key
+          secret:
+            secretName: pillmate-gcp-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pillmate-web
+  labels:
+    app: pillmate
+    tier: web
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 3000
+  selector:
+    app: pillmate
+    tier: web
