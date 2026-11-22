@@ -1,0 +1,43 @@
+# https://pillmate2026.duckdns.org
+# global 고정 IP(pillmate-ingress-ip) + Google 관리형 인증서
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: pillmate-cert
+spec:
+  domains:
+    - pillmate2026.duckdns.org
+---
+# "/"는 로그인 페이지로 302 리다이렉트라서 헬스체크 경로를 따로 지정
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: pillmate-backend
+spec:
+  healthCheck:
+    type: HTTP
+    requestPath: /auth/login
+---
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: pillmate-frontend
+spec:
+  redirectToHttps:
+    enabled: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pillmate-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: pillmate-ingress-ip
+    networking.gke.io/managed-certificates: pillmate-cert
+    networking.gke.io/v1beta1.FrontendConfig: pillmate-frontend
+spec:
+  defaultBackend:
+    service:
+      name: pillmate-web
+      port:
+        number: 80
