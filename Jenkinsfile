@@ -20,13 +20,17 @@ pipeline {
         stage('Checkout code') {
             steps {
                 checkout scm
+                script {
+                    // 브랜치별 빌드 번호가 겹치지 않도록 태그에 브랜치명 포함
+                    env.IMAGE_TAG = "${env.BRANCH_NAME.replaceAll('[^A-Za-z0-9_.-]', '-')}-${env.BUILD_ID}"
+                }
             }
         }
 
         stage('Build image') {
             steps {
                 script {
-                    app = docker.build("${DOCKER_IMAGE}:${env.BUILD_ID}")
+                    app = docker.build("${DOCKER_IMAGE}:${env.IMAGE_TAG}")
                 }
             }
         }
@@ -48,7 +52,7 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://registry.hub.docker.com', DOCKERHUB_CREDENTIALS) {
-                        app.push("${env.BUILD_ID}")
+                        app.push(env.IMAGE_TAG)
                         app.push(env.BRANCH_NAME == 'main' ? 'latest' : 'develop')
                     }
                 }
@@ -60,7 +64,7 @@ pipeline {
                 branch 'main'
             }
             steps {
-                sh "sed -i 's#IMAGE_PLACEHOLDER#${DOCKER_IMAGE}:${env.BUILD_ID}#g' k8s/app.yaml"
+                sh "sed -i 's#IMAGE_PLACEHOLDER#${DOCKER_IMAGE}:${env.IMAGE_TAG}#g' k8s/app.yaml"
                 step([
                     $class: 'KubernetesEngineBuilder',
                     projectId: env.PROJECT_ID,
@@ -76,7 +80,7 @@ pipeline {
 
     post {
         always {
-            sh "docker rmi ${DOCKER_IMAGE}:${env.BUILD_ID} || true"
+            sh "docker rmi ${DOCKER_IMAGE}:${env.IMAGE_TAG} || true"
         }
     }
 }

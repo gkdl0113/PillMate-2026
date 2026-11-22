@@ -25,6 +25,7 @@ push / PR ──(webhook)──> Jenkins (GCP VM, Docker 컨테이너)
 | `Jenkinsfile` | 파이프라인 |
 | `k8s/app.yaml` | 웹 Deployment + LoadBalancer Service |
 | `k8s/mysql.yaml` | MySQL Deployment + PVC + ClusterIP Service |
+| `k8s/ingress.yaml` | HTTPS Ingress, Google 관리형 인증서, 헬스체크 설정 |
 | `jenkins/` | gcloud, kubectl, 플러그인 포함된 Jenkins 이미지 |
 | `scripts/gcp/` | GCP 리소스 생성, Jenkins 설치, 클러스터 초기 설정, 삭제 |
 
@@ -83,7 +84,17 @@ GitHub Webhook (fork 저장소 Settings > Webhooks)
 - Content type: `application/json`
 - 이벤트: push, pull request
 
-### 5. 확인
+### 5. HTTPS
+
+```bash
+gcloud compute addresses create pillmate-ingress-ip --global
+```
+
+- duckdns에서 도메인을 위 IP로 변경
+- `k8s/ingress.yaml`이 main 배포 때 같이 적용됨, 인증서 발급까지 15~60분
+- OAuth 클라이언트 리디렉션 URI: `https://pillmate2026.duckdns.org/auth/google/callback`
+
+### 6. 확인
 
 ```bash
 kubectl get pods
@@ -102,12 +113,15 @@ kubectl get svc pillmate-web   # EXTERNAL-IP로 접속
 | Jenkins 브랜치 스캔이 5분씩 대기 | GitHub API 익명 접근 + 기본 rate limit 전략(Normalize) | Jenkins 설정에서 `Throttle at/near rate limit`으로 변경 |
 | fork 시 develop 브랜치만 복사됨 | fork 화면의 기본 브랜치만 복사 옵션 | main 브랜치 별도로 push |
 | `GOOGLE_CLIENT_ID` 비어 있으면 서버 시작 실패 | passport GoogleStrategy가 clientID 필수 | 값이 없을 땐 임시값 사용 |
+| 브랜치마다 이미지 태그가 겹침 (`develop` 1번과 `main` 1번이 둘 다 `:1`) | 태그를 BUILD_ID로만 생성 | 태그를 `<브랜치>-<빌드번호>`로 변경 |
+| 구글 로그인 `400 invalid_request` | Google OAuth는 IP 주소, http 리디렉션 URI를 허용하지 않음 | duckdns 도메인 + Ingress(관리형 인증서)로 https 적용, `trust proxy` / passport `proxy: true` 설정 |
+| Ingress 헬스체크 실패 가능성 | `/`가 로그인 페이지로 302 응답 | BackendConfig로 헬스체크 경로를 `/auth/login`으로 지정 |
+| 기존 OAuth 클라이언트 수정 불가 | 만든 사람의 GCP 프로젝트에 있음 | 새 프로젝트에서 OAuth 클라이언트 재발급 |
 | MySQL 8에서 `[Migration] ... 실패` 로그 | `ADD COLUMN IF NOT EXISTS`는 MariaDB 문법 | schema.sql에 컬럼이 이미 있어서 동작에는 영향 없음 |
 
 ## 기타
 
 - 챗봇(Ollama)은 클러스터에 없어서 챗봇 기능은 동작하지 않음
 - 카카오맵은 개발자 콘솔에 배포 주소(IP)를 Web 도메인으로 등록해야 표시됨
-- Google OAuth는 IP 주소를 리디렉션 URI로 쓸 수 없어서 도메인 연결 전까지 구글 로그인 불가
 - MySQL 초기 SQL은 PVC가 비어 있을 때만 실행됨
 - 삭제: `bash scripts/gcp/99-cleanup.sh <PROJECT_ID>`

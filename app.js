@@ -15,6 +15,9 @@ const PORT = process.env.PORT || 3000;
 // 기본 설정
 // ============================================================
 
+// 로드밸런서(https) 뒤에서 실행되므로 X-Forwarded-Proto 신뢰
+app.set('trust proxy', 1);
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
