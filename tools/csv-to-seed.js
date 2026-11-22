@@ -1,4 +1,3 @@
-```js id="abm4qk"
 // tools/csv-to-seed.js
 
 const fs = require('fs');
@@ -127,4 +126,3 @@ fs.writeFileSync(outPath, sql, 'utf-8');
 console.log(
   `✅ 완료: ${inserts.length}개 수거함 → db/seed.sql`
 );
-```
