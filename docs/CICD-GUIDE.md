@@ -38,7 +38,7 @@ git clone https://github.com/<user>/PillMate-2026.git && cd PillMate-2026
 bash scripts/gcp/01-gcp-setup.sh <PROJECT_ID>
 ```
 
-API 활성화, Jenkins VM + 고정 IP + 방화벽(8080), GKE 클러스터(노드 1개), 배포용 서비스 계정(`jenkins-gke`, `roles/container.developer`)과 JSON 키 생성.
+API 활성화, Jenkins VM + 고정 IP + 방화벽(8080, GitHub webhook IP 대역만 허용), GKE 클러스터(노드 1개), 배포용 서비스 계정(`jenkins-gke`, `roles/container.developer`)과 JSON 키 생성.
 
 ### 2. Jenkins 설치 (Jenkins VM)
 
@@ -48,7 +48,13 @@ curl -fsSL https://raw.githubusercontent.com/<user>/PillMate-2026/<branch>/scrip
 bash setup.sh <user> <branch>
 ```
 
-`http://<VM IP>:8080` 접속 → 초기 비밀번호 입력 → suggested plugins 설치 → 관리자 계정 생성.
+8080은 외부에서 바로 열리지 않아서 SSH 터널로 접속 (Cloud Shell이면 웹 미리보기 8080).
+
+```bash
+gcloud compute ssh jenkins-server --zone asia-northeast3-a -- -L 8080:localhost:8080
+```
+
+`localhost:8080` 접속 → 초기 비밀번호 입력 → suggested plugins 설치 → 관리자 계정 생성.
 
 ### 3. 클러스터 초기 설정 (Cloud Shell)
 
@@ -83,6 +89,7 @@ GitHub Webhook (fork 저장소 Settings > Webhooks)
 - Payload URL: `http://<VM IP>:8080/github-webhook/`
 - Content type: `application/json`
 - 이벤트: push, pull request
+- 방화벽이 GitHub webhook 대역만 허용하므로 Payload URL은 VM IP 그대로 사용, 관리 화면만 터널로 접속
 
 ### 5. HTTPS
 
@@ -118,6 +125,8 @@ kubectl get svc pillmate-web   # EXTERNAL-IP로 접속
 | Ingress 헬스체크 실패 가능성 | `/`가 로그인 페이지로 302 응답 | BackendConfig로 헬스체크 경로를 `/auth/login`으로 지정 |
 | 기존 OAuth 클라이언트 수정 불가 | 만든 사람의 GCP 프로젝트에 있음 | 새 프로젝트에서 OAuth 클라이언트 재발급 |
 | MySQL 8에서 `[Migration] ... 실패` 로그 | `ADD COLUMN IF NOT EXISTS`는 MariaDB 문법 | schema.sql에 컬럼이 이미 있어서 동작에는 영향 없음 |
+| Jenkins 관리자 비밀번호, Credential이 HTTP로 전송됨 | 8080을 0.0.0.0/0으로 열고 브라우저로 바로 접속 | 8080은 GitHub webhook IP 대역만 허용, 관리 화면은 SSH 터널로 접속 |
+| 팀 공용 Jenkins의 8080을 막았더니 개인 Jenkins webhook도 같이 막힘 | 같은 GCP 프로젝트에서 두 VM이 같은 방화벽 규칙(`allow-jenkins-8080`, 태그 `jenkins`)을 사용 | 개인 VM에 전용 태그(`personal-jenkins`)와 전용 규칙(`allow-personal-jenkins-webhook`)을 따로 둠 |
 
 ## 기타
 
